@@ -19,6 +19,11 @@ class MazeCell {
 	}
 
 	projection() {
+		/*
+		 * The projection function returns a string stating what kind of cell is coming up,
+		 * with the cell type in all caps. This is somewhat similar to Java's enums and how
+		 * you can customize their toString() methods.
+		 */
 		var projection = '';
 		if (this.type === MazeCellTypes.WALL) {
 			projection = "WALL cell at "
@@ -40,6 +45,8 @@ class Maze {
 	 */
 
 	constructor(plainTextMaze) {
+		// The Maze constructor creates mazes using a 2D array of chars.
+
 		// split the string into rows
 		this.maze = plainTextMaze.split('\n')
 
@@ -53,6 +60,10 @@ class Maze {
 			}
 		}
 
+		/*
+		 * The start and end locations are hardcoded to ensure that the algorithm works as
+		 * expected and the beginning/end aren't in the middle of the maze somewhere.
+		 */
 		this.start = this.maze[1][0];
 		this.destination = this.maze[this.maze.length - 2][this.maze[0].length - 1];
 	}
@@ -61,6 +72,11 @@ class Maze {
 	 * this function determines whether the argument cell meets the destination criteria
 	 */
 	destinationPredicate(cell) {
+		/*
+		 * The destination predicate function checks that a given cell meets the destination criteria,
+		 * and returns the relevant boolean value. i.e., it checks that the destination row and column
+		 * are equal to the given cell's row and column.
+		 */
 		if (this.destination.row === cell.row && this.destination.col == cell.col)
 			return true;
 		else
@@ -72,26 +88,38 @@ class Maze {
 	 * check whether those neighbors have been visited)
 	 */
 	getNeighbors(cell) {
+		/*
+		 * Neighbors were originally added to the neighbors array in order of:
+		 * top -> left -> bottom -> right (counterclockwise).
+		 *
+		 * This was changed to go right -> bottom -> left -> top because the start of the maze is always
+		 * in the upper left, and the end is always in the bottom right. This means that top and left will
+		 * rarely be the correct directions. Thus, they should be checked last.
+		 */
 		var neighbors = [];
 
-		if (cell.row - 1 >= 0 &&
-			this.maze[cell.row - 1][cell.col].type === MazeCellTypes.PASSAGEWAY) {
-			neighbors.push(this.maze[cell.row - 1][cell.col]);
+		// checks the right direction
+		if (cell.col + 1 < this.maze[cell.row].length &&
+			this.maze[cell.row][cell.col + 1].type === MazeCellTypes.PASSAGEWAY) {
+			neighbors.push(this.maze[cell.row][cell.col + 1]);
 		}
 
-		if (cell.col - 1 >= 0 &&
-			this.maze[cell.row][cell.col - 1].type === MazeCellTypes.PASSAGEWAY) {
-			neighbors.push(this.maze[cell.row][cell.col - 1]);
-		}
-
+		// checks the bottom direction
 		if (cell.row + 1 < this.maze.length &&
 			this.maze[cell.row + 1][cell.col].type === MazeCellTypes.PASSAGEWAY) {
 			neighbors.push(this.maze[cell.row + 1][cell.col])
 		}
 
-		if (cell.col + 1 < this.maze[cell.row].length &&
-			this.maze[cell.row][cell.col + 1].type === MazeCellTypes.PASSAGEWAY) {
-			neighbors.push(this.maze[cell.row][cell.col + 1]);
+		// checks the left direction
+		if (cell.col - 1 >= 0 &&
+			this.maze[cell.row][cell.col - 1].type === MazeCellTypes.PASSAGEWAY) {
+			neighbors.push(this.maze[cell.row][cell.col - 1]);
+		}
+
+		// checks the vertical direction
+		if (cell.row - 1 >= 0 &&
+			this.maze[cell.row - 1][cell.col].type === MazeCellTypes.PASSAGEWAY) {
+			neighbors.push(this.maze[cell.row - 1][cell.col]);
 		}
 
 		return neighbors;
@@ -117,6 +145,14 @@ class Maze {
 		// create a map to hold cells to parents, set first element's
 		// parents as false (is source cell). Generally, the parents
 		// map will have projection values as keys and objects as values.
+
+		/*
+		 * The parents map maps cells to their parents, with the first cell's parents as false
+		 * (the "parents" are the cells visited directly prior). The keys in this situation
+		 * are projection values for the cells, and the objects are normal values. This variable
+		 * is necessary so that once the end is reached, the map can be backtracked in order to get
+		 * the maze solution.
+		 */
 		var parents = new Array();
 		parents[this.start.projection()] = false;
 
@@ -171,7 +207,65 @@ class Maze {
 	 * with the type MazeCellTypes.SOLUTION. 
 	 */
 	solveMazeDFS() {
-		// TODO
+		// create the stack to hold the cells we have visited but need
+		// to return to explore (we will treat the array like a stack)
+		var frontier = new Array()
+		frontier.push(this.start);
+
+		// create a set to hold the cells we have visited and add the
+		// first element
+		var visited = new Set();
+		visited.add(this.start.projection())
+
+		// create a map to hold cells to parents, set first element's
+		// parents as false (is source cell). Generally, the parents
+		// map will have projection values as keys and objects as values.
+		var parents = new Array();
+		parents[this.start.projection()] = false;
+
+		// search and continue searching  while there are still items in the queue
+		while (frontier.length >= 1) {
+
+			// get the next element in the queue
+			var current = frontier.pop();
+
+			// mark the next element as visited
+			current.type = MazeCellTypes.VISITED;
+
+			// test to see if it meets the destination criteria
+			if (this.destinationPredicate(current)) {
+				// we've reached the destination! Awesome!
+				break;
+			}
+
+			// get the neighbors of the current cell (passageways)
+			var neighbors = this.getNeighbors(current);
+
+			// one by one, add neighbors to the stack
+			for (var i = 0; i < neighbors.length; i++) {
+
+				var neighbor = neighbors[i].projection();
+
+				// see if we've already visited this cell
+				if (!visited.has(neighbor)) {
+					// if we haven't, add it to the visited set
+					visited.add(neighbor);
+					// add current as the neighbor's parent
+					parents[neighbor] = current;
+					// add the neighbor to the stack
+					frontier.push(neighbors[i])
+					// set the neighbor to have a "frotier" type
+					neighbors[i].type = MazeCellTypes.FRONTIER;
+				}
+			}
+		}
+
+		// backtrack through each cell's parent and set path cells to type
+		// solution
+		while (current) {
+			current.type = MazeCellTypes.SOLUTION;
+			current = parents[current.projection()];
+		}
 	}
 	
 	/*
@@ -219,3 +313,9 @@ class Maze {
 	}
 
 }
+
+/*
+ * On average, DFS visits most all of the cells in the maze, while BFS visits approximately half.
+ *
+ * In the average case, BFS is better-suited for pathfinding.
+ */
