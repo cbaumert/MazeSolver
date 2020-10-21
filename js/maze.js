@@ -38,6 +38,7 @@ class MazeCell {
 }
 
 class Maze {
+
 	/* 
 	 *this function constructs the maze object, and accepts an argument,
 	 * plainTextMaze, which is an nxn string representation of a maze
@@ -66,6 +67,12 @@ class Maze {
 		 */
 		this.start = this.maze[1][0];
 		this.destination = this.maze[this.maze.length - 2][this.maze[0].length - 1];
+	}
+
+	// create heuristic function to be used in the a star solving
+	euclideanDistanceHeuristic(cell) {
+		// calculate and return euclidean distance
+		return Math.sqrt(Math.pow(cell.col - this.destination.col, 2) + Math.pow(cell.row - this.destination.row, 2));
 	}
 
 	/*
@@ -274,7 +281,87 @@ class Maze {
 	 * with the type MazeCellTypes.SOLUTION. 
 	 */
 	solveMazeDijkstra() {
-		// TODO
+
+		// create metric function to be used in the priority queue
+		function metric(cell) {
+			return cell.priority;
+		}
+
+		// create the queue to hold the cells we have visited but need
+		// to return to explore (we will treat the array like a queue)
+		var frontier = new PriorityQueue(metric);
+
+		//set start cost to 0
+		this.start.priority = 0;
+
+		// push start onto the frontier
+		frontier.enqueue(this.start);
+
+		// create a set to hold the cells we have visited and add the
+		// first element
+		var visited = new Set();
+		visited.add(this.start.projection())
+
+		// create a map to hold cells to parents, set first element's
+		// parents as false (is source cell). Generally, the parents
+		// map will have projection values as keys and objects as values.
+
+		/*
+		 * The parents map maps cells to their parents, with the first cell's parents as false
+		 * (the "parents" are the cells visited directly prior). The keys in this situation
+		 * are projection values for the cells, and the objects are normal values. This variable
+		 * is necessary so that once the end is reached, the map can be backtracked in order to get
+		 * the maze solution.
+		 */
+		var parents = new Array();
+		parents[this.start.projection()] = false;
+
+		// search and continue searching  while there are still items in the queue
+		while (frontier.peek()) {
+
+			// get the next element in the queue
+			var current = frontier.dequeue();
+
+			// mark the next element as visited
+			current.type = MazeCellTypes.VISITED;
+
+			// test to see if it meets the destination criteria
+			if (this.destinationPredicate(current)) {
+				// we've reached the destination! Awesome!
+				break;
+			}
+
+			// get the neighbors of the current cell (passageways)
+			var neighbors = this.getNeighbors(current);
+
+			// one by one, add neighbors to the queue
+			for (var i = 0; i < neighbors.length; i++) {
+
+				var neighbor = neighbors[i].projection();
+
+				// see if we've already visited this cell
+				if (!visited.has(neighbor)) {
+					// if we haven't,  add it to the visited set
+					visited.add(neighbor);
+					// add current as the neighbor's parent
+					parents[neighbor] = current;
+					// add the neighbor to the queue
+					frontier.enqueue(neighbors[i])
+					// set the neighbor to have a "frotier" type
+					neighbors[i].type = MazeCellTypes.FRONTIER;
+
+					// update the neighbor's priority
+					neighbors[i].priority = current.priority + 1;
+				}
+			}
+		}
+
+		// backtrack through each cell's parent and set path cells to type
+		// solution
+		while (current) {
+			current.type = MazeCellTypes.SOLUTION;
+			current = parents[current.projection()];
+		}
 	}
 	
 	/*
@@ -283,7 +370,86 @@ class Maze {
 	 * with the type MazeCellTypes.SOLUTION. 
 	 */
 	solveMazeAStar() {
-		// TODO
+		// create a metric function to be used by the priority queue
+		function metric(cell) {
+			return cell.priority;
+		}
+
+		// create the queue to hold the cells we have visited but need
+		// to return to explore (we will treat the array like a queue)
+		var frontier = new PriorityQueue(metric);
+
+		//set start cost to 0
+		this.start.priority = 0;
+
+		// push start onto the frontier
+		frontier.enqueue(this.start);
+
+		// create a set to hold the cells we have visited and add the
+		// first element
+		let visited = new Set();
+		visited.add(this.start.projection())
+
+		// create a map to hold cells to parents, set first element's
+		// parents as false (is source cell). Generally, the parents
+		// map will have projection values as keys and objects as values.
+
+		/*
+		 * The parents map maps cells to their parents, with the first cell's parents as false
+		 * (the "parents" are the cells visited directly prior). The keys in this situation
+		 * are projection values for the cells, and the objects are normal values. This variable
+		 * is necessary so that once the end is reached, the map can be backtracked in order to get
+		 * the maze solution.
+		 */
+		var parents = new Array();
+		parents[this.start.projection()] = false;
+
+		// search and continue searching  while there are still items in the queue
+		while (frontier.peek()) {
+
+			// get the next element in the queue
+			var current = frontier.dequeue();
+
+			// mark the next element as visited
+			current.type = MazeCellTypes.VISITED;
+
+			// test to see if it meets the destination criteria
+			if (this.destinationPredicate(current)) {
+				// we've reached the destination! Awesome!
+				break;
+			}
+
+			// get the neighbors of the current cell (passageways)
+			var neighbors = this.getNeighbors(current);
+
+			// one by one, add neighbors to the queue
+			for (var i = 0; i < neighbors.length; i++) {
+
+				var neighbor = neighbors[i].projection();
+
+				// see if we've already visited this cell
+				if (!visited.has(neighbor)) {
+					// if we haven't,  add it to the visited set
+					visited.add(neighbor);
+					// add current as the neighbor's parent
+					parents[neighbor] = current;
+					// add the neighbor to the queue
+					frontier.enqueue(neighbors[i])
+					// set the neighbor to have a "frontier" type
+					neighbors[i].type = MazeCellTypes.FRONTIER;
+
+					// update the neighbor's priority
+					neighbors[i].priority = this.euclideanDistanceHeuristic(neighbors[i]);
+				}
+			}
+		}
+
+		// backtrack through each cell's parent and set path cells to type
+		// solution
+		while (current) {
+			current.type = MazeCellTypes.SOLUTION;
+			current = parents[current.projection()];
+		}
 	}
 
 	
